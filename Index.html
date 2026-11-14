@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Givre Match – Jeu de match 3 gratuit</title>
+<meta name="description" content="Givre Match : un jeu de match 3 gratuit. Brisez la glace, créez des bombes et enchaînez les niveaux.">
+<style>
+:root{--bg:#10233a;--panel:#183552;--ink:#eef6ff;--mut:#9db8d3;--acc:#ffb347;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1826;--panel:#122b44}}
+:root[data-theme="dark"]{--bg:#0b1826;--panel:#122b44}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;min-height:100%;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:1.5rem;margin:4px 0 10px}
+.w{width:100%;max-width:420px}
+.hud{display:flex;gap:6px;margin-bottom:10px}
+.hud div{flex:1;background:var(--panel);border-radius:12px;padding:7px 4px;text-align:center;font-size:.72rem;color:var(--mut)}
+.hud b{display:block;font-size:1.2rem;color:var(--ink)}
+#board{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;aspect-ratio:1;background:var(--panel);padding:6px;border-radius:16px;touch-action:manipulation}
+.t{border:0;background:transparent;padding:0;position:relative;cursor:pointer;border-radius:10px;transition:transform .15s,opacity .2s}
+.t i{position:absolute;inset:12%;display:block;background:var(--c);box-shadow:inset 0 -4px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.35)}
+.t[data-k="0"] i{border-radius:50%}.t[data-k="1"] i{border-radius:22%}
+.t[data-k="2"] i{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.t[data-k="3"] i{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.t[data-k="4"] i{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.t[data-k="5"] i{clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.t.ice{background:rgba(170,225,255,.4);box-shadow:inset 0 0 0 2px #bfe9ff}
+.t.bomb::after{content:"";position:absolute;inset:38%;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(0,0,0,.4)}
+.t.sel{transform:scale(1.12);background:rgba(255,255,255,.2)}
+.t.pop{transform:scale(0);opacity:0}
+.t:focus-visible,a:focus-visible,button:focus-visible{outline:3px solid var(--acc)}
+#msg{min-height:1.6em;margin:10px 0 6px;font-weight:700;color:var(--acc);text-align:center}
+.row{display:flex;gap:8px;justify-content:center}
+button.cta{background:var(--acc);color:#2b1a00;border:0;border-radius:12px;padding:12px 20px;font-size:1rem;font-weight:700;cursor:pointer}
+button.sec{background:var(--panel);color:var(--ink);border:0;border-radius:12px;padding:12px 16px;font-size:1rem;cursor:pointer}
+.help{font-size:.8rem;color:var(--mut);margin-top:10px;text-align:center}
+.ad{min-height:100px;margin-top:14px;border:1px dashed var(--mut);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:.8rem;overflow:hidden}
+footer{margin-top:18px;font-size:.8rem;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+footer a,.back{color:var(--mut)}
+#legal{display:none;line-height:1.55}
+#legal h2{font-size:1.2rem}#legal h3{font-size:1rem;margin-top:1.2em}
+#cookie{position:fixed;left:0;right:0;bottom:0;background:var(--panel);padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));display:none;z-index:9;box-shadow:0 -4px 16px rgba(0,0,0,.4)}
+#cookie p{margin:0 0 10px;font-size:.85rem;max-width:420px;margin-inline:auto}
+@media (prefers-reduced-motion:reduce){.t{transition:none}}
+</style>
+</head>
+<body>
+<div class="w" id="game">
+<h1>Givre Match</h1>
+<div class="hud">
+  <div>Niveau<b id="lvl">1</b></div>
+  <div>Score<b id="score">0</b></div>
+  <div>Objectif<b id="goal">0</b></div>
+  <div>Glace<b id="ice">0</b></div>
+  <div>Coups<b id="moves">0</b></div>
+</div>
+<div id="board" role="grid" aria-label="Plateau de jeu"></div>
+<div id="msg" aria-live="polite"></div>
+<div class="row"><button class="cta" id="next">Nouvelle partie</button><button class="sec" id="mute" aria-label="Son">Son : oui</button></div>
+<p class="help">Alignez 3 pièces. Un alignement de 4 crée une bombe (blanche) qui explose en 3×3. Brisez toute la glace pour réussir un niveau.</p>
+<div class="ad" id="adslot">Espace publicitaire</div>
+</div>
+
+<div class="w" id="legal"></div>
+
+<footer>
+  <a href="#confidentialite">Confidentialité et cookies</a>
+  <a href="#mentions">Mentions légales</a>
+  <a href="#contact">Contact</a>
+  <a href="#" id="cset">Gérer les cookies</a>
+</footer>
+
+<div id="cookie" role="dialog" aria-label="Cookies">
+  <p>Nous utilisons des cookies pour afficher des publicités (Google AdSense) et financer ce jeu gratuit. Vous pouvez accepter ou refuser. <a href="#confidentialite" style="color:var(--acc)">En savoir plus</a></p>
+  <div class="row"><button class="sec" id="no">Refuser</button><button class="cta" id="yes">Accepter</button></div>
+</div>
+
+<script>
+/* ======= À PERSONNALISER AVANT MISE EN LIGNE ======= */
+var ADSENSE_CLIENT="ca-pub-XXXXXXXXXXXXXXXX";   // votre identifiant éditeur AdSense
+var AD_SLOT="0000000000";                        // l’identifiant de votre bloc d’annonces
+var CONTACT_EMAIL="votre@email.com";
+var SITE_OWNER="Votre nom ou raison sociale";
+/* ==================================================== */
+
+var N=8,K=6,COL=["#ff6b6b","#4dd4ac","#5aa9ff","#ffd166","#c79bff","#ff9ec7"];
+var g,b,ice,sel=null,busy=false,total=0,ls=0,moves=0,level=1,goal=0,state="play",muted=false;
+var bd=document.getElementById("board");
+function $(i){return document.getElementById(i)}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function rnd(){return Math.floor(Math.random()*K)}
+
+/* ---- Sons ---- */
+var AC=null;
+function tone(f,d,t){
+  if(muted)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    var o=AC.createOscillator(),v=AC.createGain();
+    o.type=t||"triangle";o.frequency.value=f;
+    v.gain.setValueAtTime(.12,AC.currentTime);v.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);
+    o.connect(v);v.connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}
+}
+function fanfare(){[523,659,784,1047].forEach(function(f,i){setTimeout(function(){tone(f,.25)},i*130)})}
+
+/* ---- Logique ---- */
+function runs(){
+  var out=[],r,c,e,k,cells,i;
+  for(r=0;r<N;r++){c=0;while(c<N){k=g[r][c];e=c;while(e+1<N&&g[r][e+1]===k)e++;
+    if(k>=0&&e-c>=2){cells=[];for(i=c;i<=e;i++)cells.push([r,i]);out.push(cells)}c=e+1}}
+  for(c=0;c<N;c++){r=0;while(r<N){k=g[r][c];e=r;while(e+1<N&&g[e+1][c]===k)e++;
+    if(k>=0&&e-r>=2){cells=[];for(i=r;i<=e;i++)cells.push([i,c]);out.push(cells)}r=e+1}}
+  return out;
+}
+function sw(a,c,d,e){var t=g[a][c];g[a][c]=g[d][e];g[d][e]=t;t=b[a][c];b[a][c]=b[d][e];b[d][e]=t}
+function hasMove(){
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++)for(var i=0;i<2;i++){
+    var r2=r+i,c2=c+(1-i);if(r2>=N||c2>=N)continue;
+    sw(r,c,r2,c2);var ok=runs().length>0;sw(r,c,r2,c2);if(ok)return true}
+  return false;
+}
+function fill(){
+  do{g=[];b=[];for(var r=0;r<N;r++){g[r]=[];b[r]=[];for(var c=0;c<N;c++){g[r][c]=rnd();b[r][c]=false}}}
+  while(runs().length||!hasMove());
+}
+function startLevel(){
+  fill();ice=[];for(var r=0;r<N;r++){ice[r]=[];for(var c=0;c<N;c++)ice[r][c]=false}
+  var n=Math.min((level-1)*4,20);
+  while(n>0){var rr=Math.floor(Math.random()*N),cc=Math.floor(Math.random()*N);if(!ice[rr][cc]){ice[rr][cc]=true;n--}}
+  goal=1000+level*400;ls=0;moves=24+Math.min(level,6);sel=null;busy=false;state="play";
+  $("next").textContent="Recommencer";
+  $("msg").textContent="Niveau "+level+" : atteignez "+goal+" points"+(iceLeft()?" et brisez la glace.":".");
+  draw();
+}
+function iceLeft(){var n=0;for(var r=0;r<N;r++)for(var c=0;c<N;c++)if(ice[r][c])n++;return n}
+function draw(){
+  bd.innerHTML="";
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+    var t=document.createElement("button");
+    t.className="t"+(ice[r][c]?" ice":"")+(b[r][c]?" bomb":"")+(sel&&sel[0]===r&&sel[1]===c?" sel":"");
+    t.dataset.k=g[r][c];t.dataset.r=r;t.dataset.c=c;
+    t.setAttribute("aria-label","Pièce ligne "+(r+1)+" colonne "+(c+1)+(ice[r][c]?", glacée":"")+(b[r][c]?", bombe":""));
+    t.innerHTML='<i style="--c:'+COL[g[r][c]]+'"></i>';
+    bd.appendChild(t);
+  }
+  $("lvl").textContent=level;$("score").textContent=ls;$("goal").textContent=goal;$("ice").textContent=iceLeft();$("moves").textContent=moves;
+}
+async function resolve(){
+  var chain=0,rs;
+  while((rs=runs()).length){
+    chain++;
+    var set={},keep=[],i,j;
+    rs.forEach(function(run){
+      run.forEach(function(p){set[p[0]*N+p[1]]=1});
+      if(run.length>=4)keep.push(run[1]);
+    });
+    Object.keys(set).forEach(function(k){
+      var r=Math.floor(k/N),c=k%N;
+      if(b[r][c]){for(i=-1;i<=1;i++)for(j=-1;j<=1;j++){var y=r+i,x=c+j;if(y>=0&&y<N&&x>=0&&x<N)set[y*N+x]=1}tone(180,.25,"sawtooth")}
+    });
+    keep.forEach(function(p){delete set[p[0]*N+p[1]]});
+    var n=0,broke=0;
+    Object.keys(set).forEach(function(k){
+      var r=Math.floor(k/N),c=k%N;n++;
+      if(ice[r][c]){ice[r][c]=false;broke++}
+      bd.children[k].classList.add("pop");
+    });
+    keep.forEach(function(p){b[p[0]][p[1]]=true});
+    ls+=n*10*chain+broke*50;
+    tone(380+chain*90,.15);
+    $("score").textContent=ls;
+    await wait(230);
+    Object.keys(set).forEach(function(k){var r=Math.floor(k/N),c=k%N;g[r][c]=-1;b[r][c]=false});
+    for(var c=0;c<N;c++){
+      var col=[];
+      for(var r=N-1;r>=0;r--)if(g[r][c]>=0)col.push([g[r][c],b[r][c]]);
+      while(col.length<N)col.push([rnd(),false]);
+      for(r=0;r<N;r++){g[N-1-r][c]=col[r][0];b[N-1-r][c]=col[r][1]}
+    }
+    draw();
+    if(chain>1)$("msg").textContent="Combo ×"+chain+" !";
+    await wait(170);
+  }
+}
+async function tap(r,c){
+  if(busy||state!=="play")return;
+  if(!sel){sel=[r,c];draw();tone(300,.05);return}
+  var a=sel[0],d=sel[1];sel=null;
+  if(Math.abs(a-r)+Math.abs(d-c)!==1){sel=[r,c];draw();return}
+  busy=true;$("msg").textContent="";
+  sw(a,d,r,c);draw();await wait(150);
+  if(!runs().length){sw(a,d,r,c);draw();tone(120,.2,"square");$("msg").textContent="Aucune combinaison ici.";busy=false;return}
+  moves--;
+  await resolve();
+  var guard=0;while(!hasMove()&&guard++<50){fill();$("msg").textContent="Plateau mélangé !"}
+  draw();
+  if(ls>=goal&&iceLeft()===0){
+    state="won";total+=ls;fanfare();
+    $("msg").textContent="Niveau "+level+" réussi ! Total : "+total;
+    $("next").textContent="Niveau suivant";
+  }else if(moves<=0){
+    state="lost";tone(150,.5,"sawtooth");
+    $("msg").textContent=ls>=goal?"Il reste de la glace ! Réessayez.":"Perdu : "+ls+"/"+goal+" points.";
+    $("next").textContent="Réessayer";
+  }
+  busy=false;
+}
+bd.addEventListener("click",function(e){var t=e.target.closest(".t");if(t)tap(+t.dataset.r,+t.dataset.c)});
+$("next").onclick=function(){if(state==="won")level++;else if(state==="play"||state==="lost"){if(state==="play"&&moves>0&&level===1&&total===0&&ls===0){}}startLevel()};
+$("mute").onclick=function(){muted=!muted;this.textContent="Son : "+(muted?"non":"oui")};
+
+/* ---- Cookies et publicité ---- */
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+function loadAds(){
+  if(ADSENSE_CLIENT.indexOf("XXXX")>-1)return;
+  var s=document.createElement("script");s.async=true;s.crossOrigin="anonymous";
+  s.src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client="+ADSENSE_CLIENT;
+  document.head.appendChild(s);
+  var ad=$("adslot");ad.textContent="";
+  var ins=document.createElement("ins");ins.className="adsbygoogle";ins.style.cssText="display:block;width:100%";
+  ins.setAttribute("data-ad-client",ADSENSE_CLIENT);ins.setAttribute("data-ad-slot",AD_SLOT);
+  ins.setAttribute("data-ad-format","auto");ins.setAttribute("data-full-width-responsive","true");
+  ad.appendChild(ins);
+  try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}
+}
+function consent(v){store("gm_consent",v);$("cookie").style.display="none";if(v==="yes")loadAds()}
+$("yes").onclick=function(){consent("yes")};
+$("no").onclick=function(){consent("no")};
+$("cset").onclick=function(e){e.preventDefault();$("cookie").style.display="block"};
+var c0=store("gm_consent");
+if(c0==="yes")loadAds();else if(c0!=="no")$("cookie").style.display="block";
+
+/* ---- Pages légales (vues par ancre) ---- */
+var PAGES={
+confidentialite:'<h2>Politique de confidentialité et cookies</h2><p>Givre Match ne vous demande aucun compte et ne collecte pas de données personnelles directement.</p><h3>Publicité</h3><p>Ce site affiche des annonces via Google AdSense, après votre accord. Google et ses partenaires peuvent utiliser des cookies pour diffuser des annonces personnalisées ou non, selon votre choix. Pour en savoir plus : policies.google.com/technologies/ads.</p><h3>Vos choix</h3><p>Vous pouvez refuser ou modifier votre choix à tout moment avec « Gérer les cookies » en bas de page. Sans votre accord, aucune annonce n’est chargée.</p><h3>Stockage local</h3><p>Nous mémorisons uniquement votre choix de cookies dans votre navigateur.</p><h3>Contact</h3><p>Pour toute demande liée à vos données : '+CONTACT_EMAIL+'.</p>',
+mentions:'<h2>Mentions légales</h2><p>Éditeur du site : '+SITE_OWNER+'.</p><p>Contact : '+CONTACT_EMAIL+'.</p><p>Hébergeur : à compléter (nom et adresse de votre hébergeur).</p><p>Givre Match est un jeu original. Toute ressemblance avec d’autres jeux est fortuite.</p>',
+contact:'<h2>Contact</h2><p>Une question, un bug, une idée ? Écrivez-nous : <a href="mailto:'+CONTACT_EMAIL+'" style="color:var(--acc)">'+CONTACT_EMAIL+'</a></p>'
+};
+function route(){
+  var h=location.hash.replace("#",""),p=PAGES[h],L=$("legal");
+  if(p){L.innerHTML=p+'<p><a class="back" href="#jeu">← Retour au jeu</a></p>';L.style.display="block";$("game").style.display="none";window.scrollTo(0,0)}
+  else{L.style.display="none";$("game").style.display="block"}
+}
+window.addEventListener("hashchange",route);route();
+startLevel();
+</script>
+</body>
+</html>
